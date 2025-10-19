@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import dayjs from 'dayjs';
 import User from '../models/User';
 import OTP from '../models/OTP';
@@ -9,13 +9,23 @@ import crypto from 'crypto';
 
 const OTP_TTL_MIN = Number(process.env.OTP_TTL_MIN || 10);
 
-function genOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit
+function genOTP(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 }
 
-// Signup OTP request
+// ✅ Helper: Create JWT safely for TS v5 + jsonwebtoken v9
+function createToken(payload: object): string {
+  const secret: Secret = process.env.JWT_SECRET!;
+  const options: SignOptions = {
+    expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as unknown as SignOptions['expiresIn'],
+  };
+  return jwt.sign(payload, secret, options);
+}
+
+// ✅ SIGNUP — Request OTP
 export const signupRequestOTP = async (req: Request, res: Response) => {
   const { name, email, mobile, password } = req.body;
+
   const existing = await User.findOne({ email });
   if (existing) return res.status(400).json({ message: 'Email already registered' });
 
@@ -26,19 +36,24 @@ export const signupRequestOTP = async (req: Request, res: Response) => {
     email,
     otp: hashed,
     purpose: 'signup',
-    expiresAt: dayjs().add(OTP_TTL_MIN, 'minute').toDate()
+    expiresAt: dayjs().add(OTP_TTL_MIN, 'minute').toDate(),
   });
 
   await sendOTPEmail(email, otpValue, 'Sign up');
   return res.json({ message: 'OTP sent to email' });
 };
 
-// Verify signup OTP
+// ✅ SIGNUP — Verify OTP and create account
 export const verifySignup = async (req: Request, res: Response) => {
   const { name, email, mobile, password, otp } = req.body;
+
   const record = await OTP.findOne({ email, purpose: 'signup', used: false }).sort({ createdAt: -1 });
   if (!record) return res.status(400).json({ message: 'No OTP found' });
-  if (record.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired' });
+  if (record.expiresAt < new Date()) {
+    record.used = true;
+    await record.save();
+    return res.status(400).json({ message: 'OTP expired' });
+  }
 
   const hashed = crypto.createHash('sha256').update(otp).digest('hex');
   if (hashed !== record.otp) return res.status(400).json({ message: 'Invalid OTP' });
@@ -47,15 +62,14 @@ export const verifySignup = async (req: Request, res: Response) => {
   const passwordHash = await bcrypt.hash(password, salt);
 
   const user = await User.create({ name, email, mobile, passwordHash });
+  record.used = true;
+  await record.save();
 
-  // Delete OTP immediately after use
-  await OTP.deleteOne({ _id: record._id });
-
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+  const token = createToken({ id: user._id });
   return res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
 };
 
-// Login
+// ✅ LOGIN
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
@@ -64,11 +78,11 @@ export const login = async (req: Request, res: Response) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(400).json({ message: 'Invalid credentials' });
 
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+  const token = createToken({ id: user._id });
   res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
 };
 
-// Request forgot password OTP
+// ✅ FORGOT PASSWORD — Request OTP
 export const requestForgotPasswordOTP = async (req: Request, res: Response) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
@@ -81,19 +95,24 @@ export const requestForgotPasswordOTP = async (req: Request, res: Response) => {
     email,
     otp: hashed,
     purpose: 'forgot_password',
-    expiresAt: dayjs().add(OTP_TTL_MIN, 'minute').toDate()
+    expiresAt: dayjs().add(OTP_TTL_MIN, 'minute').toDate(),
   });
 
   await sendOTPEmail(email, otpValue, 'Reset password');
   return res.json({ message: 'OTP sent' });
 };
 
-// Verify forgot password OTP
+// ✅ FORGOT PASSWORD — Verify OTP and reset password
 export const verifyForgotPasswordOTP = async (req: Request, res: Response) => {
   const { email, otp, newPassword } = req.body;
   const record = await OTP.findOne({ email, purpose: 'forgot_password', used: false }).sort({ createdAt: -1 });
+
   if (!record) return res.status(400).json({ message: 'OTP not found' });
-  if (record.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired' });
+  if (record.expiresAt < new Date()) {
+    record.used = true;
+    await record.save();
+    return res.status(400).json({ message: 'OTP expired' });
+  }
 
   const hashed = crypto.createHash('sha256').update(otp).digest('hex');
   if (hashed !== record.otp) return res.status(400).json({ message: 'Invalid OTP' });
@@ -102,8 +121,7 @@ export const verifyForgotPasswordOTP = async (req: Request, res: Response) => {
   const passwordHash = await bcrypt.hash(newPassword, salt);
   await User.updateOne({ email }, { $set: { passwordHash } });
 
-  // Delete OTP immediately after use
-  await OTP.deleteOne({ _id: record._id });
-
+  record.used = true;
+  await record.save();
   return res.json({ message: 'Password reset successful' });
 };

@@ -21,8 +21,10 @@
     "nodemailer": "^6.9.3"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.3",
     "@types/node": "^24.8.1",
+    "@types/nodemailer": "^7.0.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }
