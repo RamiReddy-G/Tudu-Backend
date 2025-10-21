@@ -18,7 +18,8 @@
     "joi": "^17.x",
     "jsonwebtoken": "^9.x",
     "mongoose": "^7.x",
-    "nodemailer": "^6.9.3"
+    "nodemailer": "^6.9.3",
+    "resend": "^6.2.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
