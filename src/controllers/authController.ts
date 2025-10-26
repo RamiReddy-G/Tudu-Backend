@@ -125,7 +125,7 @@ export const verifyForgotPasswordOTP = async (req: Request, res: Response) => {
   await record.save();
   return res.json({ message: 'Password reset successful' });
 };
-export const updateDeviceToken = async (req: AuthRequest, res: Response) => {
+export const updateDeviceToken = async (req: Request, res: Response) => {
   try {
     const user = req.user;
     const { deviceToken } = req.body;
