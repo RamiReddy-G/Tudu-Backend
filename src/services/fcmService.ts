@@ -1,28 +1,29 @@
 import admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
+import { ServiceAccount } from 'firebase-admin';
+
+const serviceAccountPath = path.resolve('./serviceAccountKey.json');
+const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf-8')) as ServiceAccount;
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FCM_PROJECT_ID,
-      clientEmail: process.env.FCM_CLIENT_EMAIL,
-      privateKey: process.env.FCM_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
+    credential: admin.credential.cert(serviceAccount),
   });
 }
 
-export async function sendPush(
-  deviceToken: string,
-  title: string,
-  body: string,
-  data?: Record<string, string>
-) {
-  if (!deviceToken) return;
+export async function sendPush(token: string, title: string, body: string) {
+  if (!token) return;
 
   const message: admin.messaging.Message = {
-    token: deviceToken,
+    token,
     notification: { title, body },
-    data: data || {},
   };
 
-  return admin.messaging().send(message);
+  try {
+    const response = await admin.messaging().send(message);
+    console.log('✅ Notification sent:', response);
+  } catch (error: any) {
+    console.error('❌ Error sending notification:', error.message);
+  }
 }
