@@ -125,3 +125,21 @@ export const verifyForgotPasswordOTP = async (req: Request, res: Response) => {
   await record.save();
   return res.json({ message: 'Password reset successful' });
 };
+export const updateDeviceToken = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    const { deviceToken } = req.body;
+
+    if (!deviceToken) {
+      return res.status(400).json({ message: 'Device token is required' });
+    }
+
+    user.deviceToken = deviceToken;
+    await user.save();
+
+    res.json({ message: 'Device token updated' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
