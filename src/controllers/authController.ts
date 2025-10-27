@@ -146,3 +146,21 @@ export const updateDeviceToken = async (req: AuthenticatedRequest, res: Response
     res.status(500).json({ message: 'Server error' });
   }
 };
+// ✅ Get profile of logged-in user
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({
+      name: user.name,
+      email: user.email,
+      mobile: user.mobile,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
