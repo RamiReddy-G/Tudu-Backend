@@ -147,10 +147,13 @@ export const updateDeviceToken = async (req: AuthenticatedRequest, res: Response
   }
 };
 // ✅ Get profile of logged-in user
-export const getProfile = async (req, res) => {
+export const getProfile = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findById((req as any).user.id).select('-password');
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
 
     res.json({
       name: user.name,
