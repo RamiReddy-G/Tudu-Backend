@@ -100,3 +100,18 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Delete all tasks for the authenticated user
+export const deleteAllTasks = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+
+    // Delete all tasks that belong to this user
+    await Task.deleteMany({ user: user._id });
+
+    res.status(200).json({ message: "All tasks deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting all tasks:", err);
+    res.status(500).json({ message: "Server error while deleting all tasks" });
+  }
+};
