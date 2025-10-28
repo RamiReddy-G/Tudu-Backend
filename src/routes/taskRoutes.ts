@@ -1,6 +1,6 @@
 import express from 'express';
 import {
-  createTask, listTasks, getTask, updateTask, deleteTask
+  createTask, listTasks, getTask, updateTask, deleteTask, deleteAllTasks
 } from '../controllers/taskController';
 import { requireAuth } from '../middleware/authMiddleware';
 
